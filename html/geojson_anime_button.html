@@ -49,7 +49,7 @@
       <input id="end_time" type="datetime-local" name="period" step="1">
       <input onclick="showMarkers();" type=button value="Show Markers">
       <input onclick="clearMarkers();" type=button value="Hide Markers">
-      <input onclick="deleteMarkers();" type=button value="Delete Markers">
+      <input onclick="deleteMarkers(true);" type=button value="Delete Markers">
     </div>
     <div id="map"></div>
     <div id="drop-container"><div id="drop-silhouette"></div></div>
@@ -60,7 +60,7 @@
       var line = null;
       function geoPoint(marker, timestamp, geo_event) {
         this.marker = marker;
-        this.time = convetStringToDate(timestamp);
+        this.timestamp = convetStringToDate(timestamp);
         this.event = geo_event;
       };
       var geoPoints = [];
@@ -89,41 +89,52 @@
             lat: event.latLng.lat(),
             lng: event.latLng.lng()
           };
-          var content = geoPoints[index].time + '<br>' + pos.lat.toFixed(6) + ', ' + pos.lng.toFixed(6);
+          var content = geoPoints[index].timestamp + '<br>' + pos.lat.toFixed(6) + ', ' + pos.lng.toFixed(6);
           infoWindow.setPosition(pos);
           infoWindow.setContent(content);
           infoWindow.open(map);
         });
       }
 
+      function srotMarkers(){
+        var li = geoPoints.length - 1;
+        // Sort Geo Data by timestamp
+        geoPoints.sort(function(a,b){
+          return a.timestamp - b.timestamp;
+        });
+        // Set the first geo data as start data
+        geoPoints[0].marker.label = "S";
+        geoPoints[0].marker.visible = true;
+        geoPoints[0].marker.setMap(map);
+        // Set the last geo data as end data
+        geoPoints[li].marker.label = "E";
+        geoPoints[li].marker.visible = true;
+        geoPoints[li].marker.setMap(map);
+      }
+
       function loadGeoJsonString(geoString) {
+        // turn off all markers and lin
+        deleteMarkers(false);
         var geojson = JSON.parse(geoString);
-        var time_start;
-        var time_max;
-        var latLng;
         for (var i = 0; i < geojson.features.length; i++) {
           var feature = geojson.features[i];
+          //Only Point data should be added as Markers
           if (feature.geometry.type == "Point"){
-            if(i === 0){
-              feature.properties.event = "S";
-              time_start = convetStringToDate(feature.properties.time);
-              latLng = new google.maps.LatLng(feature.geometry.coordinates[1], feature.geometry.coordinates[0]);
-            }
-            else if (i === (geojson.features.length - 1)) {
-              feature.properties.event = "E";
-              time_max = convetStringToDate(feature.properties.time);
-            }
             addMarker(feature, i);
           }
         }
-        map.setCenter(latLng);
+        srotMarkers();
+        //Update the center of the map
+        map.setCenter(geoPoints[0].marker.position);
+        //Set start time and end time
+        setTimePanelVisible(geoPoints[0].timestamp, geoPoints[geoPoints.length - 1].timestamp);
+        //Draw a line by Point data
         setLine(map);
-        setTimeValue(time_start, time_max);
       }
 
       //Set start time and end time on floating-panel
       //Also set display value as block to show floating-panel
-      function setTimeValue(time_start, time_max){
+      function setTimePanelVisible(time_start, time_max){
         var time_min = new Date(time_start);
         var time_end = new Date(time_max);
         time_min.setSeconds(time_start.getSeconds() + 1);
@@ -229,13 +240,12 @@
             line.set('icons', icons);
         }, 20);
       }
-
       // Removes the markers from the map, but keeps them in the array.
       function clearMarkers() {
         var s = new Date(document.getElementById("start_time").value);
         var e = new Date(document.getElementById("end_time").value);
         for (var i = 0; i < geoPoints.length; i++) {
-          if(geoPoints[i].marker.label === null && (geoPoints[i].time >= s && geoPoints[i].time <= e)){
+          if(geoPoints[i].marker.label === null && (geoPoints[i].timestamp >= s && geoPoints[i].timestamp <= e)){
             geoPoints[i].marker.visible = false;
             geoPoints[i].marker.setMap(null);
           }
@@ -251,7 +261,7 @@
         var s = new Date(document.getElementById("start_time").value);
         var e = new Date(document.getElementById("end_time").value);
         for (var i = 0; i < geoPoints.length; i++) {
-          if(geoPoints[i].marker.label !== null || (geoPoints[i].time >= s && geoPoints[i].time <= e)){
+          if(geoPoints[i].marker.label !== null || (geoPoints[i].timestamp >= s && geoPoints[i].timestamp <= e)){
             geoPoints[i].marker.visible = true;
             geoPoints[i].marker.setMap(map);
           }
@@ -263,15 +273,25 @@
       }
 
       // Deletes all markers in the array by removing references to them.
-      function deleteMarkers() {
+      function deleteMarkers(all) {
         for (var i = 0; i < geoPoints.length; i++) {
+          geoPoints[i].marker.visible = false;
           geoPoints[i].marker.setMap(null);
+          if(geoPoints[i].marker.label === "S" || geoPoints[i].marker.label === "E" ){
+            geoPoints[i].marker.label = null;
+          }
         }
-        geoPoints = [];
+
         window.clearInterval(timer);
-        line.setMap(null);
-        delete line;
         document.getElementById('floating-panel').style.display = 'none';
+        if(line != null){
+          line.setMap(null);
+          delete line;
+          line = null;
+        }
+        if(all === true){
+          geoPoints = [];
+        }
       }
 
       /* convert evet time to datetime-local format
