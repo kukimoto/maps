@@ -94,7 +94,7 @@
           var content = geoPoints[index].timestamp + '<br>' + pos.lat.toFixed(6) + ', ' + pos.lng.toFixed(6);
           infoWindow.setPosition(pos);
           infoWindow.setContent(content);
-          infoWindow.open(map);
+          infoWindow.open(map, marker);
         });
       }
 
