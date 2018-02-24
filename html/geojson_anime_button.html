@@ -50,6 +50,7 @@
       <input onclick="showMarkers();" type=button value="Show Markers">
       <input onclick="clearMarkers();" type=button value="Hide Markers">
       <input onclick="deleteMarkers(true);" type=button value="Delete Markers">
+      <input onclick="downloadGeoJson();" type=button value="Download GeoJSON">
     </div>
     <div id="map"></div>
     <div id="drop-container"><div id="drop-silhouette"></div></div>
@@ -58,10 +59,11 @@
       var map;
       var timer = null;
       var line = null;
-      function geoPoint(marker, timestamp, geo_event) {
+      function geoPoint(marker, feature) {
         this.marker = marker;
-        this.timestamp = convetStringToDate(timestamp);
-        this.event = geo_event;
+        this.feature = feature;
+        this.timestamp = convetStringToDate(feature.properties.time);
+        this.event = (feature.properties.event != null)?feature.properties.event:"NULL";
       };
       var geoPoints = [];
 
@@ -73,15 +75,15 @@
         });
       }
 
-      function addMarker(features, index) {
-        var coords = features.geometry.coordinates;
+      function addMarker(feature, index) {
+        var coords = feature.geometry.coordinates;
         var marker = new google.maps.Marker({
           position: new google.maps.LatLng(coords[1],coords[0]),
-          visible: (features.properties.event != "NULL")?true:false,
-          label: (features.properties.event != "NULL")?features.properties.event[0]:null,
+          visible: (feature.properties.event != null)?((feature.properties.event != "NULL")?true:false):false,
+          label: (feature.properties.event != null)?((feature.properties.event != "NULL")?feature.properties.event[0]:null):null,
           map: map
         });
-        geoPoints.push(new geoPoint(marker, features.properties.time, features.properties.event));
+        geoPoints.push(new geoPoint(marker, feature));
 
         marker.addListener('click', function(event) {
           var infoWindow = new google.maps.InfoWindow;
@@ -320,6 +322,30 @@
              + ("0"+d.getHours()).slice(-2)+':'
              + ("0"+d.getMinutes()).slice(-2)+':'
              + ("0"+d.getSeconds()).slice(-2);
+      }
+
+      function convetDateToStr(d){
+        return d.getFullYear()
+             + (("0"+(d.getMonth() + 1)).slice(-2))
+             + ("0"+d.getDate()).slice(-2)+'_'
+             + ("0"+d.getHours()).slice(-2)
+             + ("0"+d.getMinutes()).slice(-2)
+             + ("0"+d.getSeconds()).slice(-2);
+      }
+
+      function downloadGeoJson() {
+        var features = [];
+        for(var i = 0; i < geoPoints.length; i++){
+          var feature = geoPoints[i].feature;
+          feature.id = i;
+          features.push(feature);
+        }
+        var data = JSON.stringify({"type": "FeatureCollection", "features": features}, null, 2);
+        var link = document.createElement("a");
+        link.download = convetDateToStr(geoPoints[0].timestamp) + "-" + convetDateToStr(geoPoints[geoPoints.length-1].timestamp) + ".geojson"
+        link.href = URL.createObjectURL(new Blob([data], {type: "text.plain"}));
+        link.dataset.downloadurl = ["text/plain", link.download, link.href].join(":");
+        link.click();
       }
 
       function initialize() {
