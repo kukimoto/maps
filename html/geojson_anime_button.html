@@ -31,7 +31,7 @@
       #floating-panel {
         position: absolute;
         top: 10px;
-        left: 25%;
+        left: 15%;
         z-index: 5;
         background-color: #fff;
         padding: 5px;
@@ -64,6 +64,7 @@
         this.feature = feature;
         this.timestamp = convetStringToDate(feature.properties.time);
         this.event = (feature.properties.event != null)?feature.properties.event:"NULL";
+        this.content = (feature.properties.content != null)?feature.properties.content:"NULL";
       };
       var geoPoints = [];
 
@@ -75,7 +76,7 @@
         });
       }
 
-      function addMarker(feature, index) {
+      function addMarker(feature) {
         var coords = feature.geometry.coordinates;
         var marker = new google.maps.Marker({
           position: new google.maps.LatLng(coords[1],coords[0]),
@@ -91,41 +92,54 @@
             lat: event.latLng.lat(),
             lng: event.latLng.lng()
           };
-          var content = geoPoints[index].timestamp + '<br>' + pos.lat.toFixed(6) + ', ' + pos.lng.toFixed(6);
+          var content = feature.properties.time + '<br>' + pos.lat.toFixed(6) + ', ' + pos.lng.toFixed(6);
+          if (feature.properties.content != "NULL"){
+            content += '<br>'
+            content += feature.properties.content
+          }
           infoWindow.setPosition(pos);
           infoWindow.setContent(content);
           infoWindow.open(map, marker);
         });
       }
 
-      function srotMarkers(){
-        var li = geoPoints.length - 1;
+      function sortMarkers(){
         // Sort Geo Data by timestamp
         geoPoints.sort(function(a,b){
           return a.timestamp - b.timestamp;
         });
+        for (var i = 0; i < geoPoints.length; i++) {
+          if(geoPoints[i].marker.label !== null){
+            geoPoints[i].marker.visible = true;
+            geoPoints[i].marker.setMap(map);
+          }
+        }
         // Set the first geo data as start data
-        geoPoints[0].marker.label = "S";
-        geoPoints[0].marker.visible = true;
-        geoPoints[0].marker.setMap(map);
+        if(geoPoints[0].marker.label === null){
+          geoPoints[0].marker.label = "S";
+          geoPoints[0].marker.visible = true;
+          geoPoints[0].marker.setMap(map);
+        }
         // Set the last geo data as end data
-        geoPoints[li].marker.label = "E";
-        geoPoints[li].marker.visible = true;
-        geoPoints[li].marker.setMap(map);
+        if(geoPoints[i-1].marker.label === null){
+          geoPoints[i-1].marker.label = "E";
+          geoPoints[i-1].marker.visible = true;
+          geoPoints[i-1].marker.setMap(map);
+        }
       }
 
       function loadGeoJsonString(geoString) {
-        // turn off all markers and lin
+        // turn off all markers and line
         deleteMarkers(false);
         var geojson = JSON.parse(geoString);
         for (var i = 0; i < geojson.features.length; i++) {
           var feature = geojson.features[i];
           //Only Point data should be added as Markers
           if (feature.geometry.type == "Point"){
-            addMarker(feature, i);
+            addMarker(feature);
           }
         }
-        srotMarkers();
+        sortMarkers();
         //Update the center of the map
         map.setCenter(geoPoints[0].marker.position);
         //Set start time and end time
@@ -277,11 +291,11 @@
       // Deletes all markers in the array by removing references to them.
       function deleteMarkers(all) {
         for (var i = 0; i < geoPoints.length; i++) {
-          geoPoints[i].marker.visible = false;
-          geoPoints[i].marker.setMap(null);
-          if(geoPoints[i].marker.label === "S" || geoPoints[i].marker.label === "E" ){
+          if(geoPoints[i].marker.label === "S" || geoPoints[i].marker.label === "E"){
             geoPoints[i].marker.label = null;
           }
+          geoPoints[i].marker.visible = false;
+          geoPoints[i].marker.setMap(null);
         }
 
         window.clearInterval(timer);
@@ -354,6 +368,6 @@
       }
     </script>
     <script async defer
-        src="https://maps.googleapis.com/maps/api/js?key=YOUR_KEY&callback=initialize"></script>
+        src="https://maps.googleapis.com/maps/api/js?key=YOUR_KEYM&callback=initialize"></script>
   </body>
 </html>
