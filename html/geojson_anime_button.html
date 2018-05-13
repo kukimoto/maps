@@ -76,6 +76,11 @@
         });
       }
 
+      function createGoogleMapsUrl(lat, lng){
+        var url = '<a href="https://www.google.com/maps/search/?api=1&query=' + lat + ',' + lng + '" target="_blank">' + lat + ',' + lng + '</a>';
+        return url;
+      }
+
       function addMarker(feature) {
         var coords = feature.geometry.coordinates;
         var marker = new google.maps.Marker({
@@ -92,7 +97,7 @@
             lat: event.latLng.lat(),
             lng: event.latLng.lng()
           };
-          var content = feature.properties.time + '<br>' + pos.lat.toFixed(6) + ', ' + pos.lng.toFixed(6);
+          var content = feature.properties.time + '<br>' + createGoogleMapsUrl(pos.lat.toFixed(6), pos.lng.toFixed(6));
           if (feature.properties.content != "NULL"){
             content += '<br>'
             content += feature.properties.content
@@ -239,8 +244,10 @@
         });
         var path = line.getPath();
         for(var i = 0; i < geoPoints.length; i++){
-          var latlng = geoPoints[i].marker.position;
-          path.push(latlng);
+          if(geoPoints[i].event != "Waypoint"){
+            var latlng = geoPoints[i].marker.position;
+            path.push(latlng);
+          }
         }
         animateCircle(line);
       }
